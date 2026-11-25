@@ -10,6 +10,7 @@ namespace Voyager
     ///  우클릭     : 그 칸의 발판 파괴
     ///  P          : 마우스 위치에 테스트용 캡슐(CellOccupant) 생성
     ///  N          : 낮/밤 즉시 전환
+    ///  WASD       : 플레이어 이동 (한 칸씩)
     /// </summary>
     [RequireComponent(typeof(ShipController), typeof(TimeSystem))]
     public class ShipDebugInput : MonoBehaviour
@@ -31,6 +32,7 @@ namespace Voyager
             cam = Camera.main;
 
             ship.BuildDemoLayout();
+            SpawnPlayer(new Vector2Int(2, 1));
 
             if (setupCamera && cam != null)
             {
@@ -68,6 +70,28 @@ namespace Voyager
             }
             cell = default;
             return false;
+        }
+
+        void SpawnPlayer(Vector2Int cell)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            go.name = "Player";
+            go.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+            var collider = go.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+
+            var renderer = go.GetComponent<Renderer>();
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            var material = new Material(shader);
+            var color = new Color(0.2f, 0.5f, 0.95f);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            else material.color = color;
+            renderer.sharedMaterial = material;
+
+            // PlayerController는 CellOccupant를 요구하므로 자동으로 함께 붙는다 (규칙 3 적용 대상)
+            var player = go.AddComponent<PlayerController>();
+            player.Init(ship, cell);
         }
 
         void SpawnTestOccupant(Vector2Int cell)
