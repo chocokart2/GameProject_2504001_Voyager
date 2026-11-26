@@ -18,6 +18,7 @@ namespace Voyager
     public class ShipGrid
     {
         readonly Dictionary<Vector2Int, PlatformType> platforms = new Dictionary<Vector2Int, PlatformType>();
+        readonly Dictionary<Vector2Int, int> durability = new Dictionary<Vector2Int, int>();
 
         public bool HasEngine { get; private set; }
         public Vector2Int EngineCell { get; private set; }
@@ -37,7 +38,32 @@ namespace Voyager
         /// <summary>초기 배치용. 설치 규칙을 검사하지 않는다.</summary>
         public void AddUnchecked(Vector2Int cell, PlatformType type)
         {
+            Set(cell, type);
+        }
+
+        /// <summary>발판의 현재 내구도. 발판이 없으면 0.</summary>
+        public int GetDurability(Vector2Int cell) => durability.TryGetValue(cell, out var value) ? value : 0;
+
+        /// <summary>
+        /// 발판의 내구도를 깎는다. 0 이하가 되면 Destroy와 같은 처리(규칙 1, 2 포함).
+        /// 반환값: 파괴되었는지.
+        /// </summary>
+        public bool Damage(Vector2Int cell, int amount)
+        {
+            if (amount <= 0 || !durability.TryGetValue(cell, out var value)) return false;
+            value -= amount;
+            if (value > 0)
+            {
+                durability[cell] = value;
+                return false;
+            }
+            return Destroy(cell);
+        }
+
+        void Set(Vector2Int cell, PlatformType type)
+        {
             platforms[cell] = type;
+            durability[cell] = BuildingCatalog.Get(BuildingCatalog.ToBuildingType(type)).MaxDurability;
         }
 
         /// <summary>엔진을 발판 위에 놓는다. 그 칸에 발판이 있어야 한다.</summary>
@@ -66,7 +92,7 @@ namespace Voyager
         public bool TryPlace(Vector2Int cell, PlatformType type)
         {
             if (!CanPlace(cell)) return false;
-            platforms[cell] = type;
+            Set(cell, type);
             return true;
         }
 
@@ -127,6 +153,7 @@ namespace Voyager
 
         void Remove(Vector2Int cell, List<Vector2Int> destroyed)
         {
+            durability.Remove(cell);
             if (platforms.Remove(cell)) destroyed.Add(cell);
         }
 

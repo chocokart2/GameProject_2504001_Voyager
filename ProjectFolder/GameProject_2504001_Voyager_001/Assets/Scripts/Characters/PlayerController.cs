@@ -9,7 +9,7 @@ namespace Voyager
     /// 03_04_캐릭터 시스템의 플레이어 항목 참조.
     ///  - 입력: WASD (4방향, 대각선 없음)
     ///  - 이동 간격: moveInterval초에 한 칸
-    ///  - 이동하려는 칸에 발판이 있어야 이동 가능
+    ///  - 이동하려는 칸에 바닥이 있고, 통과 불가 건물이 없어야 이동 가능 (03_03 표의 "캐릭터 통과")
     /// 발판이 파괴되면 CellOccupant 규칙(규칙 3)에 따라 이 오브젝트도 파괴된다.
     /// </summary>
     [RequireComponent(typeof(CellOccupant))]
@@ -79,7 +79,7 @@ namespace Voyager
         bool TryMove(Vector2Int direction)
         {
             var target = logicalCell + direction;
-            if (!ship.Grid.Has(target)) return false; // 발판이 없는 칸으로는 이동 불가
+            if (!ship.IsWalkable(target)) return false; // 바닥이 없거나, 통과할 수 없는 건물이 있으면 이동 불가
 
             logicalCell = target;
             moveFrom = transform.position;
