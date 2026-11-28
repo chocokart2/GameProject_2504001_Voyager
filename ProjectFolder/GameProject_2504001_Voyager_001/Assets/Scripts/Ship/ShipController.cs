@@ -20,6 +20,7 @@ namespace Voyager
         public event Action GameOver;
 
         TimeSystem timeSystem;
+        VisionSystem vision;
         readonly Dictionary<Vector2Int, GameObject> platformViews = new Dictionary<Vector2Int, GameObject>();
         readonly Dictionary<Vector2Int, GameObject> buildingViews = new Dictionary<Vector2Int, GameObject>();
         readonly Dictionary<BuildingType, Material> materials = new Dictionary<BuildingType, Material>();
@@ -27,6 +28,9 @@ namespace Voyager
         void Awake()
         {
             timeSystem = GetComponent<TimeSystem>();
+            // 이미 씬에 있는 오브젝트에는 RequireComponent가 자동으로 붙지 않으므로 직접 보장한다
+            vision = GetComponent<VisionSystem>();
+            if (vision == null) vision = gameObject.AddComponent<VisionSystem>();
 
             Grid.PlatformsDestroyed += OnPlatformsDestroyed;
             Grid.EngineDestroyed += TriggerGameOver;
@@ -61,14 +65,18 @@ namespace Voyager
 
         // ───────────── 설치 ─────────────
 
-        /// <summary>플레이어가 아이템으로 건물을 설치할 수 있는지. 안 되면 reason에 이유.</summary>
-        public bool CanBuild(Vector2Int cell, BuildingType type, out string reason)
+        /// <summary>
+        /// builderCell에 있는 플레이어가 아이템으로 cell에 건물을 설치할 수 있는지. 안 되면 reason에 이유.
+        /// 설치는 플레이어 시야 안의 칸에만 가능하다 (03_03 공통 규칙, 03_10_시야 시스템).
+        /// </summary>
+        public bool CanBuild(Vector2Int builderCell, Vector2Int cell, BuildingType type, out string reason)
         {
             var definition = BuildingCatalog.Get(type);
 
             if (IsGameOver) { reason = "게임 오버"; return false; }
             if (timeSystem.IsNight && !definition.BuildableAtNight) { reason = $"밤에는 {definition.DisplayName}을(를) 설치할 수 없음"; return false; }
             if (!definition.HasItem) { reason = $"{definition.DisplayName}은(는) 설치용 아이템이 없음"; return false; }
+            if (!vision.PlayerCanSee(builderCell, cell)) { reason = "시야 밖의 칸에는 설치할 수 없음"; return false; }
 
             if (definition.Layer == BuildingLayer.Floor)
             {
@@ -85,11 +93,11 @@ namespace Voyager
             return true;
         }
 
-        public bool TryBuild(Vector2Int cell, BuildingType type) => TryBuild(cell, type, out _);
+        public bool TryBuild(Vector2Int builderCell, Vector2Int cell, BuildingType type) => TryBuild(builderCell, cell, type, out _);
 
-        public bool TryBuild(Vector2Int cell, BuildingType type, out string reason)
+        public bool TryBuild(Vector2Int builderCell, Vector2Int cell, BuildingType type, out string reason)
         {
-            if (!CanBuild(cell, type, out reason)) return false;
+            if (!CanBuild(builderCell, cell, type, out reason)) return false;
 
             if (BuildingCatalog.TryGetPlatformType(type, out var platformType))
             {
@@ -198,6 +206,19 @@ namespace Voyager
         }
 
         // ───────────── 표시 (임시 도형) ─────────────
+
+        /// <summary>발판 / 건물의 표시 여부를 칸 단위로 정한다. (시야 시스템이 매 프레임 호출)</summary>
+        public void ApplyVisibility(Func<Vector2Int, bool> isVisible)
+        {
+            foreach (var pair in platformViews) SetVisible(pair.Value, isVisible(pair.Key));
+            foreach (var pair in buildingViews) SetVisible(pair.Value, isVisible(pair.Key));
+        }
+
+        static void SetVisible(GameObject view, bool visible)
+        {
+            var renderer = view.GetComponent<Renderer>();
+            if (renderer != null && renderer.enabled != visible) renderer.enabled = visible;
+        }
 
         void AddPlatform(Vector2Int cell, PlatformType type)
         {

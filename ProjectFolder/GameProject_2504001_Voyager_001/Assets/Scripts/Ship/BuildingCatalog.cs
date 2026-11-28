@@ -75,7 +75,7 @@ namespace Voyager
 
     /// <summary>
     /// 03_03_건물 시스템의 "공통된 형식에 의한 테이블"을 코드로 옮긴 것.
-    /// 문서의 표를 고치면 여기도 같이 고친다.
+    /// 문서의 표를 고치면 여기도 같이 고친다. 내구도 값은 05_00_밸런스 값 문서에 있다.
     /// </summary>
     public static class BuildingCatalog
     {

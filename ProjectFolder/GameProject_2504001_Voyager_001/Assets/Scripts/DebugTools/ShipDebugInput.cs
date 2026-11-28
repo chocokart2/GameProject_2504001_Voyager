@@ -13,6 +13,7 @@ namespace Voyager
     ///  F          : 그 칸의 문 열기 / 닫기 (상호작용 시스템 전 임시)
     ///  P          : 마우스 위치에 테스트용 캡슐(CellOccupant) 생성
     ///  N          : 낮/밤 즉시 전환
+    ///  V          : 시야 렌더링 제한 켜기 / 끄기 (끄면 시야 밖도 보임)
     ///  WASD       : 플레이어 이동 (한 칸씩)
     /// </summary>
     [RequireComponent(typeof(ShipController), typeof(TimeSystem))]
@@ -37,6 +38,8 @@ namespace Voyager
 
         ShipController ship;
         TimeSystem timeSystem;
+        VisionSystem vision;
+        PlayerController player;
         Camera cam;
         BuildingType selected = BuildingType.Platform;
         Vector2Int hoveredCell;
@@ -47,10 +50,12 @@ namespace Voyager
         {
             ship = GetComponent<ShipController>();
             timeSystem = GetComponent<TimeSystem>();
+            vision = GetComponent<VisionSystem>(); // ShipController.Awake에서 보장됨
             cam = Camera.main;
 
             ship.BuildDemoLayout();
-            SpawnPlayer(new Vector2Int(2, 1));
+            player = SpawnPlayer(new Vector2Int(2, 1));
+            if (vision != null) vision.Viewer = player;
 
             if (setupCamera && cam != null)
             {
@@ -67,13 +72,15 @@ namespace Voyager
 
             ReadSelection(keyboard);
             if (keyboard.nKey.wasPressedThisFrame) timeSystem.Advance();
+            if (keyboard.vKey.wasPressedThisFrame && vision != null) vision.HideOutOfSight = !vision.HideOutOfSight;
 
             hasHover = TryGetMouseCell(mouse.position.ReadValue(), out hoveredCell);
             if (!hasHover) return;
 
             if (mouse.leftButton.wasPressedThisFrame)
             {
-                lastMessage = ship.TryBuild(hoveredCell, selected, out var reason)
+                if (player == null) lastMessage = "설치 실패: 플레이어 없음";
+                else lastMessage = ship.TryBuild(player.Cell, hoveredCell, selected, out var reason)
                     ? $"{BuildingCatalog.Get(selected).DisplayName} 설치"
                     : $"설치 실패: {reason}";
             }
@@ -111,7 +118,7 @@ namespace Voyager
             return false;
         }
 
-        void SpawnPlayer(Vector2Int cell)
+        PlayerController SpawnPlayer(Vector2Int cell)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = "Player";
@@ -129,8 +136,9 @@ namespace Voyager
             renderer.sharedMaterial = material;
 
             // PlayerController는 CellOccupant를 요구하므로 자동으로 함께 붙는다 (규칙 3 적용 대상)
-            var player = go.AddComponent<PlayerController>();
-            player.Init(ship, cell);
+            var spawned = go.AddComponent<PlayerController>();
+            spawned.Init(ship, cell);
+            return spawned;
         }
 
         void SpawnTestOccupant(Vector2Int cell)
@@ -153,7 +161,7 @@ namespace Voyager
             GUI.Label(new Rect(10, 10, 900, 25),
                 $"{timeSystem.DayCount}일차 {time}  ({timeSystem.Elapsed:0}/{timeSystem.PhaseDuration:0}s){state}");
             GUI.Label(new Rect(10, 35, 900, 25),
-                $"선택: {BuildingCatalog.Get(selected).DisplayName}  |  1~9 선택, 좌클릭 설치(밤엔 발광석만), 우클릭 바닥 파괴, X 건물 피해, Z 바닥 피해, F 문, P 캡슐, N 낮/밤");
+                $"선택: {BuildingCatalog.Get(selected).DisplayName}  |  1~9 선택, 좌클릭 설치(밤엔 발광석만), 우클릭 바닥 파괴, X 건물 피해, Z 바닥 피해, F 문, P 캡슐, N 낮/밤, V 시야 렌더링 {(vision != null && vision.HideOutOfSight ? "켬" : "끔")}");
 
             if (hasHover)
             {
@@ -164,8 +172,10 @@ namespace Voyager
                     ? $"{building.Definition.DisplayName} {building.Durability}/{building.Definition.MaxDurability}" +
                       (building.Type == BuildingType.Door ? (building.IsOpen ? " (열림)" : " (닫힘)") : "")
                     : "없음";
+                string sight = player == null || vision == null ? "-"
+                    : vision.PlayerCanSee(player.Cell, hoveredCell) ? "보임" : "안 보임";
                 GUI.Label(new Rect(10, 60, 900, 25),
-                    $"칸 ({hoveredCell.x}, {hoveredCell.y})  바닥: {floor}  위층: {upper}");
+                    $"칸 ({hoveredCell.x}, {hoveredCell.y})  바닥: {floor}  위층: {upper}  시야: {sight}");
             }
 
             if (!string.IsNullOrEmpty(lastMessage))

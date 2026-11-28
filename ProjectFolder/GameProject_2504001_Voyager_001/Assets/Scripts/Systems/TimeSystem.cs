@@ -11,7 +11,7 @@ namespace Voyager
 
     /// <summary>
     /// 03_06_시간 시스템. 항해 씬에서 낮/밤을 번갈아 진행한다.
-    /// 길이(초)는 Inspector에서 조정.
+    /// 길이(초)는 Inspector에서 조정. 값은 05_00_밸런스 값 문서 참조.
     /// </summary>
     public class TimeSystem : MonoBehaviour
     {

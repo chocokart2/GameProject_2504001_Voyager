@@ -15,8 +15,8 @@ namespace Voyager
     [RequireComponent(typeof(CellOccupant))]
     public class PlayerController : MonoBehaviour
     {
-        [SerializeField] float moveInterval = 0.2f; // 한 칸 이동에 걸리는 시간 (초)
-        [SerializeField] float maxHealth = 100f;    // 임시 값
+        [SerializeField] float moveInterval = 0.2f; // 한 칸 이동에 걸리는 시간 (초), 05_00_밸런스 값
+        [SerializeField] float maxHealth = 100f;    // 임시 값, 05_00_밸런스 값
 
         ShipController ship;
         Vector2Int logicalCell;   // 이동이 끝났거나 진행 중인 목적지 칸
